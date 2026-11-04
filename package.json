@@ -1,0 +1,48 @@
+{
+  "name": "wordpress-mcp-server",
+  "version": "0.1.0",
+  "description": "MCP server that lets Claude and other AI agents read and manage a WordPress site through the REST API",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit -p tsconfig.test.json",
+    "test": "vitest run",
+    "start": "node dist/index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bgildea/wordpress-mcp-server.git"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "wordpress",
+    "claude",
+    "ai-agents"
+  ],
+  "author": "Barry Gildea",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/bgildea/wordpress-mcp-server/issues"
+  },
+  "homepage": "https://github.com/bgildea/wordpress-mcp-server#readme",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "typescript": "^5.9.3",
+    "vitest": "^3.2.7"
+  },
+  "type": "module",
+  "bin": {
+    "wordpress-mcp-server": "dist/index.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=20"
+  }
+}
