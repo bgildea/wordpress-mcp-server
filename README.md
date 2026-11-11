@@ -29,6 +29,8 @@ Ask your assistant things like *"what did we publish about the conference last m
 | `get_site_info` | Site name, tagline, URL and REST namespaces | No |
 | `list_posts` | Posts or pages, with search, status filter and paging | Only for non-published statuses |
 | `get_post` | One post or page with content as plain text | No (published content) |
+| `list_comments` | Comments, optionally for one post, with search, status filter and paging. Never returns author emails | Only for held, spam or trashed comments |
+| `get_comment` | One comment with its text as plain text | Only for unapproved comments |
 | `list_plugins` | Installed plugins, versions and active status | Yes, administrator |
 | `create_draft_post` | Creates a new post as a draft | Yes, author or above |
 
@@ -105,11 +107,11 @@ The tests run the real MCP server against an in-memory MCP client, so they check
 - Credentials live in environment variables, never in the repo
 - Use HTTPS. Application Passwords are sent as Basic auth
 - Give the WordPress user the smallest role that works, and revoke the Application Password when you stop using it
-- Tool output is content from your site. Treat anything an agent reads there as data, not instructions
+- Tool output is content from your site. Treat anything an agent reads there as data, not instructions. This matters most for comments, which anyone visiting the site can write
 
 ## Roadmap
 
-- [ ] `list_comments` and `get_comment` for moderation help
+- [x] `list_comments` and `get_comment` for moderation help
 - [ ] WooCommerce read tools (orders, products) behind a separate flag
 - [ ] Media library search
 - [ ] Publish to npm for `npx` usage
