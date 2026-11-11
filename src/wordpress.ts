@@ -46,6 +46,31 @@ export interface PluginInfo {
   status: string;
 }
 
+export type CommentStatus = "approve" | "hold" | "spam" | "trash";
+
+/**
+ * A comment as returned to the agent. Author email and IP address are
+ * deliberately left out: moderation help does not need them.
+ */
+export interface Comment {
+  id: number;
+  post: number;
+  parent: number;
+  author: string;
+  date: string;
+  status: string;
+  link: string;
+  content: string;
+}
+
+export interface ListCommentsOptions {
+  post?: number;
+  search?: string;
+  status?: CommentStatus;
+  perPage?: number;
+  page?: number;
+}
+
 export interface ListPostsOptions {
   search?: string;
   status?: "publish" | "draft" | "pending" | "private" | "future" | "any";
@@ -74,6 +99,32 @@ interface RawPost {
   link: string;
   excerpt?: { rendered?: string };
   content?: { rendered?: string };
+}
+
+interface RawComment {
+  id: number;
+  post: number;
+  parent?: number;
+  author_name?: string;
+  date: string;
+  status: string;
+  link: string;
+  content?: { rendered?: string };
+}
+
+const COMMENT_FIELDS = "id,post,parent,author_name,date,status,link,content";
+
+function toComment(raw: RawComment): Comment {
+  return {
+    id: raw.id,
+    post: raw.post,
+    parent: raw.parent ?? 0,
+    author: raw.author_name ?? "",
+    date: raw.date,
+    status: raw.status,
+    link: raw.link,
+    content: toPlainText(raw.content?.rendered),
+  };
 }
 
 /** Strip tags and decode the handful of entities WordPress commonly emits. */
@@ -237,6 +288,34 @@ export class WordPressClient {
       { query: { _fields: "plugin,name,version,status" } },
     );
     return raw.map(({ plugin, name, version, status }) => ({ plugin, name, version, status }));
+  }
+
+  /**
+   * Lists comments, newest first. Approved comments are public; held, spam
+   * and trashed comments need a user who can moderate comments.
+   */
+  async listComments(options: ListCommentsOptions = {}): Promise<Comment[]> {
+    const status = options.status ?? "approve";
+    if (status !== "approve") this.requireAuth(`list "${status}" comments`);
+    const perPage = Math.min(Math.max(options.perPage ?? 10, 1), 100);
+    const raw = await this.request<RawComment[]>("/wp/v2/comments", {
+      query: {
+        post: options.post,
+        search: options.search,
+        status,
+        per_page: perPage,
+        page: options.page,
+        _fields: COMMENT_FIELDS,
+      },
+    });
+    return raw.map(toComment);
+  }
+
+  async getComment(id: number): Promise<Comment> {
+    const raw = await this.request<RawComment>(`/wp/v2/comments/${id}`, {
+      query: { _fields: COMMENT_FIELDS },
+    });
+    return toComment(raw);
   }
 
   private requireAuth(action: string): void {

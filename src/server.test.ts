@@ -31,8 +31,10 @@ describe("MCP server", () => {
     const { tools } = await mcp.listTools();
     expect(tools.map((t) => t.name).sort()).toEqual([
       "create_draft_post",
+      "get_comment",
       "get_post",
       "get_site_info",
+      "list_comments",
       "list_plugins",
       "list_posts",
     ]);
@@ -69,6 +71,39 @@ describe("MCP server", () => {
     const result = await mcp.callTool({ name: "create_draft_post", arguments: { title: "Hi", content: "Body" } });
     expect(result.isError).toBe(true);
     expect(textOf(result)).toMatch(/Credentials are required/);
+  });
+
+  it("returns comments from list_comments without author emails", async () => {
+    const fetchImpl = fakeWordPress(() => [
+      {
+        id: 7,
+        post: 42,
+        parent: 0,
+        author_name: "Sam",
+        author_email: "sam@example.com",
+        date: "2026-11-03T08:00:00",
+        status: "approved",
+        link: "https://example.com/hello#comment-7",
+        content: { rendered: "<p>Great post</p>" },
+      },
+    ]);
+    const mcp = await connect(new WordPressClient({ baseUrl: "https://example.com", fetchImpl }));
+
+    const result = await mcp.callTool({ name: "list_comments", arguments: { post: 42 } });
+
+    expect(result.isError).toBeFalsy();
+    expect(textOf(result)).not.toContain("sam@example.com");
+    expect(JSON.parse(textOf(result))[0]).toMatchObject({ id: 7, author: "Sam", content: "Great post" });
+    expect(new URL(fetchImpl.mock.calls[0][0]).searchParams.get("post")).toBe("42");
+  });
+
+  it("reports held comments without credentials as a tool error", async () => {
+    const fetchImpl = fakeWordPress(() => []);
+    const mcp = await connect(new WordPressClient({ baseUrl: "https://example.com", fetchImpl }));
+    const result = await mcp.callTool({ name: "list_comments", arguments: { status: "hold" } });
+    expect(result.isError).toBe(true);
+    expect(textOf(result)).toMatch(/Credentials are required/);
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 
   it("rejects invalid arguments", async () => {

@@ -132,6 +132,78 @@ describe("WordPressClient", () => {
     expect((error as Error).message).toContain("Invalid post ID.");
   });
 
+  it("lists approved comments with the right query and maps fields", async () => {
+    const fetchImpl = mockFetch([
+      {
+        id: 7,
+        post: 42,
+        parent: 3,
+        author_name: "Sam",
+        date: "2026-11-03T08:00:00",
+        status: "approved",
+        link: "https://example.com/hello#comment-7",
+        content: { rendered: "<p>Thanks &amp; well done</p>" },
+      },
+    ]);
+    const client = new WordPressClient({ baseUrl: "https://example.com", fetchImpl });
+
+    const comments = await client.listComments({ post: 42, perPage: 500 });
+
+    const url = new URL(fetchImpl.mock.calls[0][0]);
+    expect(url.pathname).toBe("/wp-json/wp/v2/comments");
+    expect(url.searchParams.get("post")).toBe("42");
+    expect(url.searchParams.get("status")).toBe("approve");
+    expect(url.searchParams.get("per_page")).toBe("100");
+    expect(url.searchParams.get("_fields")).not.toContain("email");
+    expect(comments).toEqual([
+      {
+        id: 7,
+        post: 42,
+        parent: 3,
+        author: "Sam",
+        date: "2026-11-03T08:00:00",
+        status: "approved",
+        link: "https://example.com/hello#comment-7",
+        content: "Thanks & well done",
+      },
+    ]);
+  });
+
+  it("refuses to list held comments without credentials, without calling the API", async () => {
+    const fetchImpl = mockFetch([]);
+    const client = new WordPressClient({ baseUrl: "https://example.com", fetchImpl });
+    await expect(client.listComments({ status: "hold" })).rejects.toMatchObject({ status: 401, code: "auth_required" });
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("lists held comments when authenticated", async () => {
+    const fetchImpl = mockFetch([]);
+    const client = new WordPressClient({
+      baseUrl: "https://example.com",
+      username: "editor",
+      applicationPassword: "secret",
+      fetchImpl,
+    });
+    await client.listComments({ status: "hold" });
+    expect(new URL(fetchImpl.mock.calls[0][0]).searchParams.get("status")).toBe("hold");
+  });
+
+  it("gets one comment with defaults for missing fields", async () => {
+    const fetchImpl = mockFetch({
+      id: 9,
+      post: 42,
+      date: "2026-11-04T08:00:00",
+      status: "approved",
+      link: "https://example.com/hello#comment-9",
+    });
+    const client = new WordPressClient({ baseUrl: "https://example.com", fetchImpl });
+
+    const comment = await client.getComment(9);
+
+    expect(new URL(fetchImpl.mock.calls[0][0]).pathname).toBe("/wp-json/wp/v2/comments/9");
+    expect(comment).toMatchObject({ id: 9, parent: 0, author: "", content: "" });
+  });
+
   it("wraps network failures in a WordPressError", async () => {
     const fetchImpl = vi.fn<FetchLike>(async () => {
       throw new TypeError("fetch failed");
